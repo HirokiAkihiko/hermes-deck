@@ -1,0 +1,11 @@
+# Kunci tanda tangan aplikasi: TIDAK PERNAH masuk repo.
+# Tanpa berkas ini, build lokal menghasilkan APK yang tidak bisa
+# menimpa instalasi produksi (sertifikat beda) - itu disengaja.
+*.keystore
+
+# Hasil build
+*.apk
+*.idsig
+*.zip
+aligned.apk
+classes.dex
