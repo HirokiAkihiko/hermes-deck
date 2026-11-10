@@ -82,6 +82,7 @@ Dua jebakan Android membentuk arsitektur ini (detail di [Pelajaran teknis](#pela
 - **Saklar Mode HP Biasa | Mode AI** — Mode AI menyalakan hardening + stack; HP Biasa menurunkan stack bersih dan mengembalikan ponsel sebagai HP normal. Tombol ter-*debounce* (mati selama perintah berjalan) — perbaikan atas bug v1.0 tempat ketukan berulang membuat dua pengendali bertarung dan stack *flap*.
 - **Status Stack real-time** — gateway, router (+ jumlah model), web UI, Tailscale, SSH, dan batas *phantom process*; satu panggilan `ps` sehingga status tampil dalam ±0,6 detik (v1.0: semenit lebih).
 - **Kartu Agen Pembantu** — saklar SSH + Tailscale, default mati (lihat [di bawah](#agen-pembantu-akses-jarak-jauh-yang-mati-secara-default)).
+- **Kebangkitan otomatis (v1.4)** — bila Mode AI diketuk tetapi gateway tidak naik (agen Termux ikut mati karena Termux dibunuh sistem), aplikasi memanggil `deckctl resurrect` sendiri: agen dilahirkan ulang di dalam Termux lewat intent RUN_COMMAND, tanpa pengguna membuka Termux. Mode HP Biasa sebaliknya mematikan proses Termux itu sendiri (bila Agen Pembantu mati), jadi ponsel kembali bersih sepenuhnya sebagai HP harian.
 - **Aksi cepat** — Restart Stack dan Lihat Log (gabungan log modul, gateway, router, web UI).
 
 ### Hermes
@@ -167,6 +168,7 @@ Aplikasi ditulis sebagai satu berkas Kotlin programatik (`app/src/com/hiroki/her
 | Deck v1.2 / modul v2.2 | 10 Nov 2026 | Konsol dibungkus environment Hermes (`hermes` CLI jalan); Berkas menjadi explorer: salin/tempel antar folder anti-timpa + unggah via SAF (op IPC `cp`/`put`). Di perangkat yang sama: dashboard 9router + web UI dijadikan tanpa password (localhost). |
 | Deck v1.3 / modul v2.3 | 10 Nov 2026 | Saklar **Agen Pembantu** (SSH + Tailscale) terpisah, default mati: flag master + cermin, gerbang watchdog & boot, kartu + baris status SSH di Beranda. |
 | modul v2.3.1 | 10 Nov 2026 | Patch deckctl: `helper on` tidak lagi menyalakan sshd langsung (domain SELinux) — sshd murni tugas watchdog konteks boot. |
+| Deck v1.4 / modul v2.4 | 11 Nov 2026 | Mode menjadi saklar total untuk HP harian: **Mode Biasa mematikan semuanya termasuk proses Termux** (force-stop, bila Agen Pembantu mati) dan agen keluar sendiri; **Mode AI menghidupkan ulang agen dari luar** lewat perintah baru `deckctl resurrect` (intent RUN_COMMAND Termux, dengan anak tangga aktivitas bila Termux berstatus *stopped*) yang dipanggil aplikasi secara otomatis bila gateway belum naik. Syarat: `allow-external-apps = true` di termux.properties. Uji siklus penuh lulus: Biasa (Termux mati total) → Mode AI → semua hidup lagi tanpa membuka Termux. |
 
 Catatan desain dan rencana awal tersimpan di [docs/DESIGN-NOTES.md](docs/DESIGN-NOTES.md).
 

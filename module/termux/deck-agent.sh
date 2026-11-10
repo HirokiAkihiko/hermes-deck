@@ -119,6 +119,13 @@ while true; do
       kill_stack
       log "mode biasa: stack diturunkan oleh agen Termux"
     fi
+    # v1.4: Mode Biasa = total mati. Agen keluar sendiri (termasuk loop
+    # IPC-nya) supaya tidak ada proses Deck yang tertinggal di Termux;
+    # deckctl sekalian me-force-stop Termux bila helper off. Agen
+    # dihidupkan lagi oleh deckctl resurrect / Termux:Boot.
+    log "mode biasa: agen keluar"
+    kill $(jobs -p) 2>/dev/null
+    exit 0
   fi
   sleep 5
 done

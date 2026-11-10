@@ -60,6 +60,35 @@ paket ini dan tetap berdiri sendiri.
 - Berkas AI v1: baca + salin saja.
 
 
+## Changelog v2.4 / Deck v1.4 (11 Nov 2026)
+
+Latar: whyred adalah HP harian user juga. Insiden 11 Nov 01:22 — Mode AI
+diketuk saat Termux mati total: tidak terjadi apa-apa, karena agen
+pengeksekusi stack tinggal di dalam proses Termux.
+
+- **deckctl resurrect** (baru): menghidupkan deck-agent dari luar.
+  Tangga 1: intent RUN_COMMAND Termux (Termux hidup, agen mati — gerbang
+  `allow-external-apps = true` di termux.properties wajib; diset 11 Nov).
+  Tangga 2: buka TermuxActivity (mencabut status stopped) lalu
+  RUN_COMMAND lagi. Aplikasi memanggilnya otomatis ±10 detik sesudah
+  Mode AI bila gateway belum naik, dan juga saat Mode AI diketuk ulang
+  dalam keadaan stack mati.
+- **Mode Biasa total**: sesudah stack turun, bila helper off deckctl
+  me-force-stop com.termux — tidak ada proses AI/Termux tersisa. Sengaja
+  hanya di jalur perintah mode eksplisit, bukan di ensure watchdog.
+  Bila helper on, Termux dibiarkan hidup sebagai rumah sshd.
+- **Agen keluar sendiri saat Mode Biasa** (termasuk loop IPC-nya).
+- Perbaikan redireksi write_mirror/write_helper_mirror: 2>/dev/null
+  dipindah sebelum > berkas; urutan lama membocorkan pesan
+  "can't create …/.deck-helper" ke layar aplikasi dari konteks buta
+  namespace (terlihat user 11 Nov 01:22).
+- Pelajaran uji resurrect (11 Nov 01:32 & 01:59): `am start`/
+  `am startservice` dari skrip lepas (orphan sesi SSH) gagal dengan
+  "Failure calling service activity: Failed transaction (2147483646)"
+  untuk start, sementara force-stop-nya bekerja — konteks pemanggil
+  menentukan; jalur Deck (aplikasi → su → deckctl) adalah konteks yang
+  terbukti untuk am (membuka Tailscale di helper on, 10 Nov).
+
 ## Changelog v2.3.1 (10 Nov 2026, patch deckctl saja)
 
 - `helper on` tidak lagi menyalakan sshd langsung: sshd dari rantai

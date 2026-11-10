@@ -73,6 +73,8 @@ class MainActivity : Activity() {
     private var modeBusy = false
     private var helperBusy = false
     private var statusBusy = false
+    private var lastGateway = ""
+    private var resurrectBusy = false
 
     // WebView
     private var hermesWeb: WebView? = null
@@ -208,7 +210,7 @@ class MainActivity : Activity() {
         header.orientation = LinearLayout.VERTICAL
         header.setPadding(dp(16), dp(14), dp(16), dp(10))
         header.addView(tv("Hermes Deck", 20f, TXT, bold = true))
-        header.addView(tv("Panel kendali stack Hermes lokal · v1.3", 12f, SUB))
+        header.addView(tv("Panel kendali stack Hermes lokal · v1.4", 12f, SUB))
         root.addView(header)
 
         contentFrame = FrameLayout(this)
@@ -395,13 +397,38 @@ class MainActivity : Activity() {
         }
     }
 
+    // v1.4: sesudah Mode AI diterapkan, periksa apakah gateway benar-benar
+    // naik. Bila tidak (kasus Termux mati total - agen pengeksekusi ikut
+    // mati sehingga flag mode saja tidak cukup), panggil deckctl resurrect
+    // yang menghidupkan agen dari luar lewat RUN_COMMAND/aktivitas Termux.
+    private fun maybeResurrect() {
+        if (resurrectBusy) return
+        if (currentMode != "ai" || lastGateway == "up") return
+        resurrectBusy = true
+        tvHomeInfo.text = "Gateway belum naik — menghidupkan agen Termux…"
+        runDeck("resurrect", 90) { out ->
+            resurrectBusy = false
+            tvHomeInfo.text = out.ifEmpty { "Resurrect selesai." }
+            refreshStatus()
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                refreshStatus()
+            }, 15000)
+        }
+    }
+
     private fun setMode(m: String) {
         // Debounce v1.1: satu perintah mode pada satu waktu. Di v1.0 tombol
         // tetap aktif selama perintah berjalan; ketukan berulang menulis
         // mode berkali-kali dan membuat dua pengendali bertarung.
         if (modeBusy) return
         if (m == currentMode) {
-            toast(if (m == "ai") "Sudah di Mode AI" else "Sudah di HP Biasa")
+            if (m == "ai" && lastGateway != "up") {
+                // Sudah Mode AI tapi stack mati (Termux keburu mati):
+                // ketukan ini artinya "hidupkan" - jalankan resurrect.
+                maybeResurrect()
+            } else {
+                toast(if (m == "ai") "Sudah di Mode AI" else "Sudah di HP Biasa")
+            }
             return
         }
         modeBusy = true
@@ -420,6 +447,11 @@ class MainActivity : Activity() {
             currentMode = m
             paintModeButtons()
             refreshStatus()
+            if (m == "ai") {
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    maybeResurrect()
+                }, 10000)
+            }
         }
     }
 
@@ -498,6 +530,7 @@ class MainActivity : Activity() {
                 if (idx > 0) map[line.substring(0, idx).trim()] = line.substring(idx + 1).trim()
             }
             currentMode = map["mode"] ?: currentMode
+            lastGateway = map["gateway"] ?: lastGateway
             paintModeButtons()
             currentHelper = map["helper"] ?: currentHelper
             paintHelperButtons()

@@ -42,7 +42,11 @@ log() { echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >> "$LOGF" 2>/dev/null; }
 write_mirror() {
   # Best-effort saja: penjamin sinkron cermin adalah relay modul
   # (master -> cermin tiap ~2 detik dari namespace global).
-  echo "$1" > "$TXHOME/.deck-mode" 2>/dev/null
+  # PERHATIAN urutan redireksi: 2>/dev/null harus SEBELUM > berkas.
+  # Bila > gagal (pemanggil buta mount-namespace), pesan "cant create"
+  # ditulis shell ke stderr SEBELUM redireksi > diproses - dengan urutan
+  # lama, error itu bocor ke layar aplikasi (terlihat user 11 Nov 01:22).
+  echo "$1" 2>/dev/null > "$TXHOME/.deck-mode"
   chown $TXUID:$TXUID "$TXHOME/.deck-mode" 2>/dev/null
 }
 
@@ -59,7 +63,8 @@ get_helper() {
 }
 
 write_helper_mirror() {
-  echo "$(get_helper)" > "$TXHOME/.deck-helper" 2>/dev/null
+  # Urutan redireksi sama seperti write_mirror: stderr dulu, baru berkas.
+  echo "$(get_helper)" 2>/dev/null > "$TXHOME/.deck-helper"
   chown $TXUID:$TXUID "$TXHOME/.deck-helper" 2>/dev/null
 }
 
@@ -360,6 +365,45 @@ cmd_cat() {
   head -c 65536 "$p"
 }
 
+agent_alive() {
+  for p in /proc/[0-9]*/cmdline; do
+    c=$(tr '\0' ' ' < "$p" 2>/dev/null)
+    case "$c" in *"deck-agent.sh"*) return 0 ;; esac
+  done
+  return 1
+}
+
+run_command_agent() {
+  /system/bin/am startservice --user 0 \
+    -n com.termux/com.termux.app.RunCommandService \
+    -a com.termux.RUN_COMMAND \
+    --es com.termux.RUN_COMMAND_PATH "$TXHOME/deck-agent.sh" \
+    --ez com.termux.RUN_COMMAND_BACKGROUND true >/dev/null 2>&1
+}
+
+# resurrect: hidupkan deck-agent dari luar Termux (v1.4).
+# Konteks pemanggil WAJIB rantai aplikasi/su dari Deck atau sesi interaktif:
+# dari skrip lepas (orphan sesi SSH) perintah `am start/startservice` gagal
+# dengan "Failure calling service activity: Failed transaction" (terbukti
+# di uji resurrect-test 11 Nov 01:59) - konteks modul/Deck tidak.
+cmd_resurrect() {
+  if agent_alive; then echo "agen sudah hidup"; return 0; fi
+  # Anak tangga 1: Termux hidup, agen mati -> RUN_COMMAND langsung.
+  run_command_agent
+  sleep 5
+  if agent_alive; then log "resurrect: agen hidup via RUN_COMMAND"; echo "agen hidup (RUN_COMMAND)"; return 0; fi
+  # Anak tangga 2: Termux berstatus stopped -> buka aktivitasnya dulu
+  # (mencabut status stopped), lalu RUN_COMMAND lagi.
+  /system/bin/am start -n com.termux/com.termux.app.TermuxActivity >/dev/null 2>&1
+  sleep 4
+  run_command_agent
+  sleep 5
+  if agent_alive; then log "resurrect: agen hidup via activity+RUN_COMMAND"; echo "agen hidup (activity+RUN_COMMAND)"; return 0; fi
+  log "resurrect: GAGAL total"
+  echo "agen belum hidup — buka Termux sekali secara manual"
+  return 1
+}
+
 cmd_helper() {
   case "$1" in
     on)
@@ -398,7 +442,19 @@ case "$1" in
           write_mirror "$2"
           log "mode diganti ke $2 (deckctl)"
           apply_mode
-          echo "mode=$2 diterapkan"
+          if [ "$2" = "biasa" ] && [ "$(get_helper)" = "off" ]; then
+            # Mode Biasa total (v1.4): proses Termux ikut dimatikan.
+            # Hanya di jalur perintah mode eksplisit ini - BUKAN di
+            # apply_mode/ensure yang dipanggil watchdog, supaya Termux
+            # yang dibuka user untuk keperluan lain tidak ikut dibunuh.
+            # Bila helper on, Termux dibiarkan hidup sebagai rumah sshd.
+            sleep 2
+            /system/bin/am force-stop com.termux 2>/dev/null
+            log "mode biasa: Termux di-force-stop (helper off)"
+            echo "mode=biasa diterapkan (Termux ikut dimatikan)"
+          else
+            echo "mode=$2 diterapkan"
+          fi
           ;;
         *) echo "mode tidak dikenal: $2 (pakai ai|biasa)"; exit 1 ;;
       esac
@@ -431,6 +487,7 @@ case "$1" in
   put) cmd_put "$2" "$3" ;;
   ensure) apply_mode ;;   # dipakai watchdog modul
   stop) stop_stack ;;      # dipakai watchdog modul (mode biasa)
-  *) echo "pakai: deckctl mode [ai|biasa] | helper [on|off] | status | restart | log | console <cmd> | ls [path] | cat <path> | cp <sumber> <tujuan> | put <staging> <tujuan>"; exit 1 ;;
+  resurrect) cmd_resurrect ;;   # v1.4: hidupkan agen Termux dari luar
+  *) echo "pakai: deckctl mode [ai|biasa] | helper [on|off] | status | restart | resurrect | log | console <cmd> | ls [path] | cat <path> | cp <sumber> <tujuan> | put <staging> <tujuan>"; exit 1 ;;
 esac
 exit 0

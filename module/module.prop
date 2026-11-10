@@ -1,6 +1,6 @@
 id=hermes_deck
 name=Hermes Deck - Mode AI / HP Biasa + KeepAlive
-version=v2.3.1
-versionCode=6
+version=v2.4
+versionCode=7
 author=Hiroki
 description=Modul gabungan Hermes Deck untuk whyred: file mode (/data/adb/hermes_deck/mode) sebagai satu-satunya sumber kebenaran. Mode AI = hardening KeepAlive aktif + stack Hermes (router 20128, gateway, webui 8787) dijaga hidup; HP Biasa = stack diturunkan bersih. v2.3: flag Agen Pembantu (/data/adb/hermes_deck/helper, default off) — watchdog/boot hanya menyalakan sshd bila on; deckctl helper on|off mengatur Tailscale (always-on VPN + buka aplikasi) dan sshd. v2.2: IPC tambah op cp/put (explorer aplikasi v1.2: salin-tempel + unggah berkas); konsol dibungkus env Hermes. v2.1: relay modul menyinkronkan cermin mode dua arah + melayani IPC konsol/berkas untuk aplikasi; deckctl pindai proses satu lintasan. Aplikasi Deck dan CLI memanggil skrip yang sama: sh /data/adb/hermes_deck/deckctl.sh status|mode ai|mode biasa|restart|log
